@@ -1,6 +1,6 @@
 #include "KalmarLib.h"
 
-// кодограмма управления режимами работы
+// rpu codes
 void KalmarReceiver::sendConfigToPort() {
 
     // байтовый код, который будет отправлен в порт
@@ -44,55 +44,7 @@ void KalmarReceiver::sendConfigToPort() {
     lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x4); // 0 1 0 0
 }
 
-/*---------------------------------КОД УПРАВЛЕНИЯ РЕЖИМАМИ РАБОТЫ---------------------------------
-
-R1 ,R2, R3 – код управления режимами работы
-+----+----+----+----------------------------------------+-----------------+
-| R3 | R2 | R1 |                Режим работы            |  Ведущий канал  |
-+----+----+----+----------------------------------------+-----------------+
-| 0	 | 0  | 0  |          Четыре автономных канала      |       Нет       |
-+----+----+----+----------------------------------------+-----------------+
-| 0	 | 0  | 1  | Два синхронных и два автономных канала	|      Второй     |
-+----+----+----+----------------------------------------+-----------------+
-| 0	 | 1  |	0  | Три синхронных и один автономный канал	|      Третий     |
-+----+----+----+----------------------------------------+-----------------+
-| 0	 | 1  |	1  |        Четыре синхронных канала        |    Четвертый    |
-+----+----+----+----------------------------------------+-----------------+
-| 1  | 0  |	0  |      Две пары  синхронных каналов      | Первый и третий |
-+----+----+----+----------------------------------------+-----------------+
-
-
-N1, N2 – код управляемого канала (для автономных каналов)
-+----+----+-------------------+
-| N2 | N1 |	Управляемый канал |
-+----+----+-------------------+
-| 0  | 0  |       Первый      |
-+----+----+-------------------+
-| 0  | 1  |       Второй      |
-+----+----+-------------------+
-| 1  | 0  |       Третий      |
-+----+----+-------------------+
-| 1  | 1  |      Четвертый    |
-+----+----+-------------------+
-
-При  синхронной работе каналов управление необходимо осуществлять только ведущим каналом,
-на остальные оно поступает автоматически.
-
-1. Алгоритм определения кодограммы:
-   1) в соответствии с режимом работы из таблицы_1 берутся значения разрядов R3, R2 и R1;
-   2) из таблицы_1 берется номер ВЕДУЩЕГО канала для СИНХРОННЫХ каналов;
-   3) для данного номера ВЕДУЩЕГО канала по таблице_2 определяются значения разрядов N2 и N1;
-   4) если в данном режиме работы предусмотрены АВТОНОМНЫЕ каналы, то им ставятся в соответствие
-      УПРАВЛЯЮЩИЕ каналы, которые остались не занятыми в пункте 2.
-
-2. ВЕДУЩИЙ канал - это канал, управляющий группой синхронных каналов (например в режиме 3+1 будет два управляющих канала: третий канал - ведущий для трех каналов и
-*/
-void KalmarReceiver::sendTractConfigToPort(KalmarTract* tract) {
-    sendTractCentralFreqCode(tract);
-    sendAnotherTractParamsCode(tract);
-}
-
-// send shift code to tuning current tract
+// tract codes
 void KalmarReceiver::sendTractShiftCode(KalmarTract* tract) {
     char code = 0, geterodinNumber = 0;
 
@@ -187,8 +139,7 @@ void KalmarReceiver::sendTractShiftCode(KalmarTract* tract) {
     }
 }
 
-/*---------------------------------КОД УПРАВЛЕНИЯ ПЕРВЫМ ГЕТЕРОДИНОМ---------------------------------
-
+/* КОД УПРАВЛЕНИЯ ПЕРВЫМ ГЕТЕРОДИНОМ
  D1...D3  - 32-ти  разрядный последовательный код частоты настройки блока первого гетеродина записывается в
  регистры 3-х БИС интегральных синтезаторов частот КФ1015ПЛ4.
  Первые 13 разрядов кода управляют делителем опорного сигнала ОД,
@@ -289,7 +240,7 @@ void KalmarReceiver::sendTractCentralFreqCode(KalmarTract* tract) {
     lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0xA);
 }
 
-/*---------------------------------КОД УПРАВЛЕНИЯ БЛОКАМИ ПРИЕМНИКОВ---------------------------------
+/* КОД УПРАВЛЕНИЯ БЛОКАМИ ПРИЕМНИКОВ
 D4 - 14-ти разрядный последовательный код управления блоками приемников
 
 Формат управляющего слова:
@@ -362,7 +313,7 @@ D4 - 14-ти разрядный последовательный код упра
 Управление блоками приемников и первого гетеродина может осуществляться как одновременно,
 так и независимо друг от друга.
 */
-void KalmarReceiver::sendAnotherTractParamsCode(KalmarTract* tract) {
+void KalmarReceiver::sendTractAnotherParamsCode(KalmarTract* tract) {
 
     sendTractShiftCode(tract);
 
@@ -486,7 +437,259 @@ void KalmarReceiver::sendAnotherTractParamsCode(KalmarTract* tract) {
     lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0xA);
 }
 
-// tract usage for current m_config
+/* КОД УПРАВЛЕНИЯ РЕЖИМАМИ РАБОТЫ
+R1 ,R2, R3 – код управления режимами работы
++----+----+----+----------------------------------------+-----------------+
+| R3 | R2 | R1 |                Режим работы            |  Ведущий канал  |
++----+----+----+----------------------------------------+-----------------+
+| 0	 | 0  | 0  |          Четыре автономных канала      |       Нет       |
++----+----+----+----------------------------------------+-----------------+
+| 0	 | 0  | 1  | Два синхронных и два автономных канала	|      Второй     |
++----+----+----+----------------------------------------+-----------------+
+| 0	 | 1  |	0  | Три синхронных и один автономный канал	|      Третий     |
++----+----+----+----------------------------------------+-----------------+
+| 0	 | 1  |	1  |        Четыре синхронных канала        |    Четвертый    |
++----+----+----+----------------------------------------+-----------------+
+| 1  | 0  |	0  |      Две пары  синхронных каналов      | Первый и третий |
++----+----+----+----------------------------------------+-----------------+
+
+
+N1, N2 – код управляемого канала (для автономных каналов)
++----+----+-------------------+
+| N2 | N1 |	Управляемый канал |
++----+----+-------------------+
+| 0  | 0  |       Первый      |
++----+----+-------------------+
+| 0  | 1  |       Второй      |
++----+----+-------------------+
+| 1  | 0  |       Третий      |
++----+----+-------------------+
+| 1  | 1  |      Четвертый    |
++----+----+-------------------+
+
+При  синхронной работе каналов управление необходимо осуществлять только ведущим каналом,
+на остальные оно поступает автоматически.
+
+1. Алгоритм определения кодограммы:
+   1) в соответствии с режимом работы из таблицы_1 берутся значения разрядов R3, R2 и R1;
+   2) из таблицы_1 берется номер ВЕДУЩЕГО канала для СИНХРОННЫХ каналов;
+   3) для данного номера ВЕДУЩЕГО канала по таблице_2 определяются значения разрядов N2 и N1;
+   4) если в данном режиме работы предусмотрены АВТОНОМНЫЕ каналы, то им ставятся в соответствие
+      УПРАВЛЯЮЩИЕ каналы, которые остались не занятыми в пункте 2.
+
+2. ВЕДУЩИЙ канал - это канал, управляющий группой синхронных каналов (например в режиме 3+1 будет два управляющих канала: третий канал - ведущий для трех каналов и
+*/
+void KalmarReceiver::sendTractConfigToPort(KalmarTract* tract) {
+    sendTractCentralFreqCode(tract);
+    sendTractAnotherParamsCode(tract);
+}
+
+// kalibrator codes
+void KalmarReceiver::sendKalibratorModulationFreqToPort() {
+    int N5 = int(30000 / m_kalibrator.getModulationFreq());
+    int D5 = (0x0A << 19) | (N5 << 3) | 1;
+    char code = 0, D5_0 = char(D5); // учет особенности при P=1
+
+    ((char*)(&D5))[0] = char(((D5_0 >> 2) & 0x0F) | (D5_0 & 0xC1));
+
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8); // строб в CR0
+
+    for(int i = 0; i < 32; i++){
+        code  = 0x02;
+        code |=  char((D5 & 0x80000000) >> 31);
+
+        lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+        // СТРОБ  ( 9 -- 8 )
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+        code ^= 0x02;
+        lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+        // СТРОБ  ( 9 -- 8 )
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+        D5 <<= 1;
+    }
+
+    code = 0x00;
+    lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+    // СТРОБ  ( 9 -- 8 )
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+    code = 0x04;
+    lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+    // СТРОБ  ( 9 -- 8 )
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+    code = 0x00;
+    lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+    // СТРОБ  ( 9 -- 8 )
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+}
+
+/* установка уровня аттенюации калибратора
+ * D5 - последовательный код управления частотой модуляции и аттенюации калибровочного сигнала.
+ * В случае управления аттенюатором калибровочного сигнала это 8-ми разрядный последовательный код управления.
+ * Для управления используются сигналы D5, С3 и Е2.
+ * Состояние сигнала Т2 при записи кода аттенюации должно быть нулевым.
+ * Аттенюатор состоит из двух одинаковых звеньев, управляемых двоичным прямым кодом  (дискрет 2 дБ).
+ * Формат управляющего слова:
+ * +-------------------------------+
+ * | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 |
+ * +-------------------------------+
+ * | Аттенюатор 1  |  Аттенюатор 2 |
+ * +-------------------------------+
+ * Информационная последовательность D5 сопровождается импульсами синхронизации С2 и стробом Е положительной полярности.
+ * Запись информации во входной регистр блока калибратора осуществляется по переднему фронту синхроимпульсов,
+ * начиная с первого разряда. Временная диаграмма аналогична диаграмме управления блоком приемника.
+*/
+void KalmarReceiver::sendKalibratorAttStateToPort() {
+    char D5 = 0x00, code;
+
+    int kalibAttStateIdx = m_kalibrator.getAttState() / KALMAR_KALIBRATOR_ATT_STEP;
+
+    // в старой версии итоговое значение в дБ делилось на 2, что соответствовало индексу аттенюации
+    // D5 = byte(KalibAttenuation >> 1);
+    if(kalibAttStateIdx > 15){
+        kalibAttStateIdx -= 15;
+        // если индекс больше 15, то надо задействовать все разряды аттенюатора 2 (младшие 4 бита)
+        D5 <<= 4;
+
+        // D5 |= 0xFF;
+        // UPD 06.03.19 нужно прибавлять не 0xFF, а 0xF0
+        D5 |= 0xF0;
+    }
+
+    D5 |= kalibAttStateIdx;
+
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8); // строб в CR0
+
+    for(int i = 0; i < 8; i++){
+
+        // в старой версии : ManageKod  = 0x0A;
+        // UPD 06.03.19 ManageKod должен быть 0x08
+        code  = 0x08;
+
+        code |=  char(D5 & 0x01);
+        lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+
+        // СТРОБ  ( 9 -- 8 )
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+        code ^= 0x02;
+        lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+
+        // СТРОБ  ( 9 -- 8 )
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+        D5 >>= 1;
+    }
+
+    code = 0x00;
+    lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+
+    // СТРОБ  ( 9 -- 8 )
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+}
+
+void KalmarReceiver::sendKalibratorWorkStateToPort() {
+    char code;
+
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0xC);
+
+    if(m_kalibrator.getWorkState() == KALIBRATOR_ON) {
+        if(m_kalibrator.getOutType() == KALIBRATOR_EXTERNAL) {
+            code = 0x10;
+        } else {
+            code = 0x1F;
+        }
+    } else {
+        code = 0x00;
+    }
+
+    lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+    // СТРОБ  ( D -- C )(110)
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0xD);
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0xC);
+}
+
+void KalmarReceiver::sendKalibratorSignalTypeToPort(KALMAR_TRACT_INDEX supportTractIdx) {
+    char D5, code;
+
+    /* D6 - потенциальный код управления вида калибровочного сигнала
+            0 - синусоидальный,
+            1 - радиоимпульсный с переменной частотой модуляции;
+     */
+    if(m_kalibrator.getModSignalType() == KALIBRATOR_RADIOIMP) {
+       D5 = 1;
+    } else {
+        D5 = 0;
+    }
+
+    // освобождается младший разряд для бита D7
+    D5 <<= 1;
+
+    /* D7 - потенциальный код управления вида выходом калибровочного сигнала
+     *      0 - калибровочный сигнал подается на входы приемников через встроенные разветвители,
+     *      1 - калибровочный сигнал подается на внешний разъем, для калибровки через антенный тракт;
+     * При D7=0 – антенный вход отключен от приемника. */
+    if(m_kalibrator.getOutType() == KALIBRATOR_EXTERNAL) {
+       D5 |= 1;
+    } else {
+        D5 |= 0;
+    }
+
+    // освобождаются два младших разряда для битов D8, D9
+    D5 <<= 2;
+
+    /* D8, D9 – код выбора проверяемого канала
+     * частота на выходе калибратора соответствует частоте настройки канала*/
+    switch(supportTractIdx){
+        case FIRST_TRACT:
+            D5 |= 2;
+            break;
+        case SECOND_TRACT:
+            D5 |= 3;
+            break;
+        case THIRD_TRACT:
+            D5 |= 0;
+            break;
+        case FOURTH_TRACT:
+            D5 |= 1;
+            break;
+        default:
+            break;
+    }
+
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+    for(int i = 0; i < 4; i++){
+        code = char(((D5 >> (3 - i)) & 0x1) | 0x10);
+
+        lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+
+        code ^= 0x02;
+        lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+        lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+    }
+
+    code = 0x00;
+    lptSendCode(m_lptAddress + LPT_DATA_REG, code);
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x9);
+    lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
+}
+
+// extended
 void KalmarReceiver::changeTractActive() {
     switch(m_config){
         case FOUR_CHANNEL:
@@ -522,7 +725,29 @@ void KalmarReceiver::changeTractActive() {
 
 KalmarReceiver::KalmarReceiver(QObject* parent, RPU_CONFIG config): QObject(parent), m_config(config) {
 
-    changeTractActive();
+    connect(&m_firstTract,    &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
+    connect(&m_secondTract,   &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
+    connect(&m_thirdTract,    &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
+    connect(&m_fourthTract,   &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
+
+    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorModulationFreqToPort, this,      &KalmarReceiver::sendKalibratorModulationFreqToPort);
+    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorAttStateToPort,       this,      &KalmarReceiver::sendKalibratorAttStateToPort);
+    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorWorkStateToPort,      this,      &KalmarReceiver::sendKalibratorWorkStateToPort);
+    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorSignalTypeToPort,     this,      &KalmarReceiver::sendKalibratorSignalTypeToPort);
+
+    setConfig(config);
+    sendTractConfigToPort(&m_firstTract);
+    sendTractConfigToPort(&m_secondTract);
+    sendTractConfigToPort(&m_thirdTract);
+    sendTractConfigToPort(&m_fourthTract);
+}
+
+short KalmarReceiver::getLptAddress() const {
+    return m_lptAddress;
+}
+
+void KalmarReceiver::setLptAddress(short lptAddress) {
+    m_lptAddress = lptAddress;
 }
 
 RPU_CONFIG KalmarReceiver::getConfig() const {
@@ -533,12 +758,4 @@ void KalmarReceiver::setConfig(const RPU_CONFIG& config) {
     m_config = config;
     changeTractActive();
     sendConfigToPort();
-}
-
-short KalmarReceiver::getLptAddress() const {
-    return m_lptAddress;
-}
-
-void KalmarReceiver::setLptAddress(short lptAddress) {
-    m_lptAddress = lptAddress;
 }

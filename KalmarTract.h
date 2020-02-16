@@ -135,7 +135,7 @@ public:
     void setDefaultParams();
 
 signals:
-    void sendTractConfigToRpu(KALMAR_TRACT_INDEX m_tractIdx);
+    void sendTractConfigToPort(KalmarTract* tractPtr);
 };
 
 #endif // KALMARTRACT_H

@@ -2,10 +2,11 @@
 #define KALMARLIB_H
 
 #include <QObject>
-#include <windows.h>
 
 #include "KalmarLib_global.h"
+
 #include "KalmarTract.h"
+#include "KalmarKalibrator.h"
 
 #define     RPU_DEFAULT_LPT                         0x378
 
@@ -47,13 +48,24 @@ class KALMARLIB_EXPORT KalmarReceiver : public QObject
     KalmarTract m_thirdTract{this, THIRD_TRACT};
     KalmarTract m_fourthTract{this, FOURTH_TRACT};
 
+    KalmarKalibrator m_kalibrator;
+
+    // rpu codes
     void sendConfigToPort();
 
+    // tract codes
     void sendTractShiftCode(KalmarTract* tract);
     void sendTractCentralFreqCode(KalmarTract* tract);
-    void sendAnotherTractParamsCode(KalmarTract* tract);
+    void sendTractAnotherParamsCode(KalmarTract* tract);
     void sendTractConfigToPort(KalmarTract* tract);
 
+    // kalibrator codes
+    void sendKalibratorModulationFreqToPort();
+    void sendKalibratorAttStateToPort();
+    void sendKalibratorWorkStateToPort();
+    void sendKalibratorSignalTypeToPort(KALMAR_TRACT_INDEX supportTractIdx = FIRST_TRACT);
+
+    // extended
     void changeTractActive();
 
 public:

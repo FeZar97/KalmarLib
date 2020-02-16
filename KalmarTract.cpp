@@ -35,7 +35,7 @@ void KalmarTract::setCentralFreq(unsigned int centralFreq) {
         }
     }
 
-    emit sendTractConfigToRpu(m_tractIdx);
+    emit sendTractConfigToPort(this);
 }
 
 KALMAR_TRACT_IN_ATT_STATE KalmarTract::getInAttState() const {
@@ -45,7 +45,7 @@ KALMAR_TRACT_IN_ATT_STATE KalmarTract::getInAttState() const {
 void KalmarTract::setInAttState(const KALMAR_TRACT_IN_ATT_STATE& inAttState) {
     if(m_inAttState != inAttState) {
         m_inAttState = inAttState;
-        emit sendTractConfigToRpu(m_tractIdx);
+        emit sendTractConfigToPort(this);
     }
 }
 
@@ -56,7 +56,7 @@ KALMAR_TRACT_HF_ATT_STATE KalmarTract::getHfAttState() const {
 void KalmarTract::setHfAttState(const KALMAR_TRACT_HF_ATT_STATE& hfAttState) {
     if(m_hfAttState != hfAttState) {
         m_hfAttState = hfAttState;
-        emit sendTractConfigToRpu(m_tractIdx);
+        emit sendTractConfigToPort(this);
     }
 }
 
@@ -67,7 +67,7 @@ KALMAR_TRACT_IF_ATT_STATE KalmarTract::getIfAttState() const {
 void KalmarTract::setIfAttState(const KALMAR_TRACT_IF_ATT_STATE& ifAttState) {
     if(m_ifAttState != ifAttState) {
         m_ifAttState = ifAttState;
-        emit sendTractConfigToRpu(m_tractIdx);
+        emit sendTractConfigToPort(this);
     }
 }
 
@@ -78,7 +78,7 @@ KALMAR_TRACT_IF_BAND KalmarTract::getIfBand() const {
 void KalmarTract::setIfBand(const KALMAR_TRACT_IF_BAND& ifBand) {
     if(m_ifBand != ifBand) {
         m_ifBand = ifBand;
-        emit sendTractConfigToRpu(m_tractIdx);
+        emit sendTractConfigToPort(this);
     }
 }
 
@@ -116,7 +116,7 @@ void KalmarTract::setParams(unsigned int centralFreq, KALMAR_TRACT_IN_ATT_STATE 
     setIfBand(ifBand);
     blockSignals(false);
 
-    emit sendTractConfigToRpu(m_tractIdx);
+    emit sendTractConfigToPort(this);
 }
 
 void KalmarTract::setDefaultParams() {
