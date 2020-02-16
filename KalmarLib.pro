@@ -21,10 +21,10 @@ CONFIG(release, debug|release): {
 VERSION = 0.1.0
 
 HEADERS += KalmarLib_global.h \
-    KalmarKalibrator.h \
-           KalmarLib.h \ \
-    KalmarTract.h
+           KalmarKalibrator.h \
+           KalmarLib.h \
+           KalmarTract.h
 
-SOURCES += KalmarLib.cpp \ \
-    KalmarKalibrator.cpp \
-    KalmarTract.cpp
+SOURCES += KalmarLib.cpp \
+           KalmarKalibrator.cpp \
+           KalmarTract.cpp

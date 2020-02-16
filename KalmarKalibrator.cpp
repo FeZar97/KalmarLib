@@ -1,6 +1,5 @@
 #include "KalmarKalibrator.h"
 
-KalmarKalibrator::KalmarKalibrator(QObject *parent) : QObject(parent)
-{
+KalmarKalibrator::KalmarKalibrator(QObject *parent) : QObject(parent) {
 
 }

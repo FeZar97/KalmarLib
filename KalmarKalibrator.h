@@ -5,11 +5,11 @@
 
 class KalmarKalibrator : public QObject
 {
-        Q_OBJECT
-    public:
-        explicit KalmarKalibrator(QObject *parent = nullptr);
+    Q_OBJECT
 
-    signals:
+public:
+    explicit KalmarKalibrator(QObject *parent = nullptr);
+
 
 };
 
