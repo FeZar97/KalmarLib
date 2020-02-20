@@ -9,7 +9,7 @@ CONFIG += c++11
 TARGET = KalmarLib
 TEMPLATE = lib
 
-DEFINES += KALMARLIB_LIBRARY
+DEFINES += KALMARRECEIVER_LIBRARY
 DEFINES += QT_DEPRECATED_WARNINGS
 
 CONFIG(release, debug|release): {
@@ -20,11 +20,12 @@ CONFIG(release, debug|release): {
 
 VERSION = 0.1.0
 
-HEADERS += KalmarLib_global.h \
+HEADERS += KalmarDefinitions.h \
+           KalmarTract.h \
            KalmarKalibrator.h \
-           KalmarLib.h \
-           KalmarTract.h
+           KalmarReceiver_global.h \
+           KalmarReceiver.h
 
-SOURCES += KalmarLib.cpp \
+SOURCES += KalmarTract.cpp \
            KalmarKalibrator.cpp \
-           KalmarTract.cpp
+           KalmarReceiver.cpp

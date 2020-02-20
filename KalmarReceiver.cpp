@@ -1,7 +1,96 @@
-#include "KalmarLib.h"
+#include <windows.h>
+#include "KalmarTract.h"
+#include "KalmarKalibrator.h"
+#include "KalmarReceiver.h"
 
+#define     KALMAR_DEFAULT_LPT             0x378
+#define     KALMAR_DEFAULT_CONFIG          FOUR_CHANNEL
+#define     KALMAR_MIN_CONFIG              FOUR_CHANNEL
+#define     KALMAR_MAX_CONFIG              ONE_ONE_ONE_ONE_CHANNEL
+#define     KALMAR_NUMBER_OF_PRESELECTORS  10
+
+typedef void	(__stdcall *LptSendCodeFct)(unsigned short, unsigned char);
+
+// DB25 sections
+enum LPT_SECTION {
+    LPT_DATA_REG,
+    LPT_STATE_REG,
+    LPT_CONTROL_REG,
+    LPT_EPP_ADDRESS,
+    LPT_EPP_DATA
+};
+
+class KalmarReceiverPrivate: public QObject
+{
+    Q_OBJECT
+
+    LptSendCodeFct lptSendCode;
+
+    short m_lptAddress;
+    KALMAR_CONFIG m_config;
+
+public:
+    KalmarReceiverPrivate(QObject *parent = nullptr, KALMAR_CONFIG config = KALMAR_DEFAULT_CONFIG): QObject(parent) {
+
+        HINSTANCE hinstLib = LoadLibrary(TEXT("inpout32.dll"));
+        lptSendCode = LptSendCodeFct(GetProcAddress(hinstLib, "DlPortWritePortUchar"));
+
+        connect(&m_firstTract,    &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiverPrivate::sendTractConfigToPort);
+        connect(&m_secondTract,   &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiverPrivate::sendTractConfigToPort);
+        connect(&m_thirdTract,    &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiverPrivate::sendTractConfigToPort);
+        connect(&m_fourthTract,   &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiverPrivate::sendTractConfigToPort);
+
+        connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorModulationFreqToPort, this,      &KalmarReceiverPrivate::sendKalibratorModulationFreqToPort);
+        connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorAttStateToPort,       this,      &KalmarReceiverPrivate::sendKalibratorAttStateToPort);
+        connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorWorkStateToPort,      this,      &KalmarReceiverPrivate::sendKalibratorWorkStateToPort);
+        connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorSignalTypeToPort,     this,      &KalmarReceiverPrivate::sendKalibratorSignalTypeToPort);
+
+        setConfig(config);
+        sendTractConfigToPort(&m_firstTract);
+        sendTractConfigToPort(&m_secondTract);
+        sendTractConfigToPort(&m_thirdTract);
+        sendTractConfigToPort(&m_fourthTract);
+    };
+
+    virtual ~KalmarReceiverPrivate() {};
+
+    KalmarTract m_firstTract{this, FIRST_TRACT};
+    KalmarTract m_secondTract{this, SECOND_TRACT};
+    KalmarTract m_thirdTract{this, THIRD_TRACT};
+    KalmarTract m_fourthTract{this, FOURTH_TRACT};
+
+    KalmarKalibrator m_kalibrator;
+
+    // rpu codes
+    void sendConfigToPort();
+
+    // tract codes
+    void sendTractShiftCode(KalmarTract* tract);
+    void sendTractCentralFreqCode(KalmarTract* tract);
+    void sendTractAnotherParamsCode(KalmarTract* tract);
+    void sendTractConfigToPort(KalmarTract* tract);
+
+    // kalibrator codes
+    void sendKalibratorModulationFreqToPort();
+    void sendKalibratorAttStateToPort();
+    void sendKalibratorWorkStateToPort();
+    void sendKalibratorSignalTypeToPort(KALMAR_TRACT_INDEX supportTractIdx = FIRST_TRACT);
+
+    // extended
+    void changeTractActive();
+
+    short getLptAddress() const;
+    void setLptAddress(short lptAddress);
+
+    KALMAR_CONFIG getConfig() const;
+    void setConfig(const KALMAR_CONFIG& config);
+};
+
+KalmarReceiver::KalmarReceiver(QObject* parent): QObject(parent) {
+    receiver = new KalmarReceiverPrivate(this, KALMAR_DEFAULT_CONFIG);
+}
 // rpu codes
-void KalmarReceiver::sendConfigToPort() {
+void KalmarReceiverPrivate::sendConfigToPort() {
 
     // байтовый код, который будет отправлен в порт
     char code = 0x00;
@@ -10,27 +99,27 @@ void KalmarReceiver::sendConfigToPort() {
     switch(m_config)
     {
         case FOUR_CHANNEL:              // конфигурация 4
-                                        // .   .   .   R3  R2  R1  N2  N1
+            // .   .   .   R3  R2  R1  N2  N1
             code = 0x0C;                // 0   0   0   0   1   1   0   0 = 0x0C
             break;
 
         case THREE_ONE_CHANNEL:         // конфигурация 3 + 1
-                                        // .   .   .   R3  R2  R1  N2  N1
+            // .   .   .   R3  R2  R1  N2  N1
             code = 0x08;                // 0   0   0   0   1   0   0   0 = 0x08
             break;
 
         case TWO_TWO_CHANNEL:           // конфигурация 2 + 2
-                                        // .   .   .   R3  R2  R1  N2  N1
+            // .   .   .   R3  R2  R1  N2  N1
             code = 0x10;                // 0   0   0   1   0   0   0   0 = 0x10
             break;
 
         case TWO_ONE_ONE_CHANNEL:       // конфигурация 2 + 1 + 1
-                                        // .   .   .   R3  R2  R1  N2  N1
+            // .   .   .   R3  R2  R1  N2  N1
             code = 0x04;                // 0   0   0   0   0   1   0   0 = 0x04
             break;
 
         case ONE_ONE_ONE_ONE_CHANNEL:   // конфигурация 1 + 1 + 1 + 1
-                                        // .   .   .   R3  R2  R1  N2  N1
+            // .   .   .   R3  R2  R1  N2  N1
             code = 0x00;                // 0   0   0   0   0   0   0   0 = 0x00
             break;
     }
@@ -45,10 +134,10 @@ void KalmarReceiver::sendConfigToPort() {
 }
 
 // tract codes
-void KalmarReceiver::sendTractShiftCode(KalmarTract* tract) {
+void KalmarReceiverPrivate::sendTractShiftCode(KalmarTract* tract) {
     char code = 0, geterodinNumber = 0;
 
-    if(m_config < RPU_MIN_CONFIG || m_config > RPU_MAX_CONFIG)
+    if(m_config < KALMAR_MIN_CONFIG || m_config > KALMAR_MAX_CONFIG)
         code = char(0xFF);
 
     switch(m_config)
@@ -178,7 +267,7 @@ void KalmarReceiver::sendTractShiftCode(KalmarTract* tract) {
  где А - промежуточная  константа ;
  int{ } - целая часть числа, заключенного в скобки.
 */
-void KalmarReceiver::sendTractCentralFreqCode(KalmarTract* tract) {
+void KalmarReceiverPrivate::sendTractCentralFreqCode(KalmarTract* tract) {
 
     sendTractShiftCode(tract);
 
@@ -313,7 +402,7 @@ D4 - 14-ти разрядный последовательный код упра
 Управление блоками приемников и первого гетеродина может осуществляться как одновременно,
 так и независимо друг от друга.
 */
-void KalmarReceiver::sendTractAnotherParamsCode(KalmarTract* tract) {
+void KalmarReceiverPrivate::sendTractAnotherParamsCode(KalmarTract* tract) {
 
     sendTractShiftCode(tract);
 
@@ -479,13 +568,13 @@ N1, N2 – код управляемого канала (для автономн
 
 2. ВЕДУЩИЙ канал - это канал, управляющий группой синхронных каналов (например в режиме 3+1 будет два управляющих канала: третий канал - ведущий для трех каналов и
 */
-void KalmarReceiver::sendTractConfigToPort(KalmarTract* tract) {
+void KalmarReceiverPrivate::sendTractConfigToPort(KalmarTract* tract) {
     sendTractCentralFreqCode(tract);
     sendTractAnotherParamsCode(tract);
 }
 
 // kalibrator codes
-void KalmarReceiver::sendKalibratorModulationFreqToPort() {
+void KalmarReceiverPrivate::sendKalibratorModulationFreqToPort() {
     int N5 = int(30000 / m_kalibrator.getModulationFreq());
     int D5 = (0x0A << 19) | (N5 << 3) | 1;
     char code = 0, D5_0 = char(D5); // учет особенности при P=1
@@ -547,7 +636,7 @@ void KalmarReceiver::sendKalibratorModulationFreqToPort() {
  * Запись информации во входной регистр блока калибратора осуществляется по переднему фронту синхроимпульсов,
  * начиная с первого разряда. Временная диаграмма аналогична диаграмме управления блоком приемника.
 */
-void KalmarReceiver::sendKalibratorAttStateToPort() {
+void KalmarReceiverPrivate::sendKalibratorAttStateToPort() {
     char D5 = 0x00, code;
 
     int kalibAttStateIdx = m_kalibrator.getAttState() / KALMAR_KALIBRATOR_ATT_STEP;
@@ -599,7 +688,7 @@ void KalmarReceiver::sendKalibratorAttStateToPort() {
     lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
 }
 
-void KalmarReceiver::sendKalibratorWorkStateToPort() {
+void KalmarReceiverPrivate::sendKalibratorWorkStateToPort() {
     char code;
 
     lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0xC);
@@ -620,7 +709,7 @@ void KalmarReceiver::sendKalibratorWorkStateToPort() {
     lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0xC);
 }
 
-void KalmarReceiver::sendKalibratorSignalTypeToPort(KALMAR_TRACT_INDEX supportTractIdx) {
+void KalmarReceiverPrivate::sendKalibratorSignalTypeToPort(KALMAR_TRACT_INDEX supportTractIdx) {
     char D5, code;
 
     /* D6 - потенциальный код управления вида калибровочного сигнала
@@ -689,8 +778,7 @@ void KalmarReceiver::sendKalibratorSignalTypeToPort(KALMAR_TRACT_INDEX supportTr
     lptSendCode(m_lptAddress + LPT_CONTROL_REG, 0x8);
 }
 
-// extended
-void KalmarReceiver::changeTractActive() {
+void KalmarReceiverPrivate::changeTractActive() {
     switch(m_config){
         case FOUR_CHANNEL:
             m_firstTract.setTractUsage(TRACT_USED);
@@ -723,39 +811,349 @@ void KalmarReceiver::changeTractActive() {
     }
 }
 
-KalmarReceiver::KalmarReceiver(QObject* parent, RPU_CONFIG config): QObject(parent), m_config(config) {
-
-    connect(&m_firstTract,    &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
-    connect(&m_secondTract,   &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
-    connect(&m_thirdTract,    &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
-    connect(&m_fourthTract,   &KalmarTract::sendTractConfigToPort,                   this,      &KalmarReceiver::sendTractConfigToPort);
-
-    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorModulationFreqToPort, this,      &KalmarReceiver::sendKalibratorModulationFreqToPort);
-    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorAttStateToPort,       this,      &KalmarReceiver::sendKalibratorAttStateToPort);
-    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorWorkStateToPort,      this,      &KalmarReceiver::sendKalibratorWorkStateToPort);
-    connect(&m_kalibrator,    &KalmarKalibrator::sendKalibratorSignalTypeToPort,     this,      &KalmarReceiver::sendKalibratorSignalTypeToPort);
-
-    setConfig(config);
-    sendTractConfigToPort(&m_firstTract);
-    sendTractConfigToPort(&m_secondTract);
-    sendTractConfigToPort(&m_thirdTract);
-    sendTractConfigToPort(&m_fourthTract);
-}
-
-short KalmarReceiver::getLptAddress() const {
+short KalmarReceiverPrivate::getLptAddress() const {
     return m_lptAddress;
 }
 
-void KalmarReceiver::setLptAddress(short lptAddress) {
+void KalmarReceiverPrivate::setLptAddress(short lptAddress) {
     m_lptAddress = lptAddress;
 }
 
-RPU_CONFIG KalmarReceiver::getConfig() const {
+KALMAR_CONFIG KalmarReceiverPrivate::getConfig() const {
     return m_config;
 }
 
-void KalmarReceiver::setConfig(const RPU_CONFIG& config) {
+void KalmarReceiverPrivate::setConfig(const KALMAR_CONFIG& config) {
     m_config = config;
     changeTractActive();
     sendConfigToPort();
+}
+
+short KalmarReceiver::getLptAddress() const {
+    return receiver->getLptAddress();
+}
+
+void KalmarReceiver::setLptAddress(short lptAddress) {
+    receiver->setLptAddress(lptAddress);
+}
+
+KALMAR_CONFIG KalmarReceiver::getConfig() const {
+    return receiver->getConfig();
+}
+
+void KalmarReceiver::setConfig(const KALMAR_CONFIG& config) {
+    receiver->setConfig(config);
+}
+
+unsigned int KalmarReceiver::getCentralFreq(KALMAR_TRACT_INDEX idx) const {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getCentralFreq();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getCentralFreq();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getCentralFreq();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getCentralFreq();
+        default:
+            return -1;
+    }
+}
+
+void KalmarReceiver::setCentralFreq(KALMAR_TRACT_INDEX idx, unsigned int centralFreq) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setCentralFreq(centralFreq);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setCentralFreq(centralFreq);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setCentralFreq(centralFreq);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setCentralFreq(centralFreq);
+            break;
+    }
+}
+
+KALMAR_TRACT_IN_ATT_STATE KalmarReceiver::getInAttState(KALMAR_TRACT_INDEX idx) const {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getInAttState();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getInAttState();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getInAttState();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getInAttState();
+        default:
+            return IN_ATT_OFF;
+    }
+}
+
+void KalmarReceiver::setInAttState(KALMAR_TRACT_INDEX idx, const KALMAR_TRACT_IN_ATT_STATE& inAttState) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setInAttState(inAttState);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setInAttState(inAttState);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setInAttState(inAttState);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setInAttState(inAttState);
+            break;
+    }
+}
+
+KALMAR_TRACT_HF_ATT_STATE KalmarReceiver::getHfAttState(KALMAR_TRACT_INDEX idx) const {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getHfAttState();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getHfAttState();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getHfAttState();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getHfAttState();
+        default:
+            return HF_ATT_OFF;
+    }
+}
+
+void KalmarReceiver::setHfAttState(KALMAR_TRACT_INDEX idx, const KALMAR_TRACT_HF_ATT_STATE& hfAttState) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setHfAttState(hfAttState);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setHfAttState(hfAttState);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setHfAttState(hfAttState);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setHfAttState(hfAttState);
+            break;
+    }
+}
+
+KALMAR_TRACT_IF_ATT_STATE KalmarReceiver::getIfAttState(KALMAR_TRACT_INDEX idx) const {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getIfAttState();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getIfAttState();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getIfAttState();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getIfAttState();
+        default:
+            return IF_ATT_OFF;
+    }
+}
+
+void KalmarReceiver::setIfAttState(KALMAR_TRACT_INDEX idx, const KALMAR_TRACT_IF_ATT_STATE& ifAttState) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setIfAttState(ifAttState);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setIfAttState(ifAttState);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setIfAttState(ifAttState);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setIfAttState(ifAttState);
+            break;
+    }
+}
+
+KALMAR_TRACT_IF_BAND KalmarReceiver::getIfBand(KALMAR_TRACT_INDEX idx) const {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getIfBand();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getIfBand();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getIfBand();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getIfBand();
+        default:
+            return FIRST_BAND;
+    }
+}
+
+void KalmarReceiver::setIfBand(KALMAR_TRACT_INDEX idx, const KALMAR_TRACT_IF_BAND& ifBand) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setIfBand(ifBand);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setIfBand(ifBand);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setIfBand(ifBand);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setIfBand(ifBand);
+            break;
+    }
+}
+
+int KalmarReceiver::getPreselectorIdx(KALMAR_TRACT_INDEX idx) const {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getPreselectorIdx();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getPreselectorIdx();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getPreselectorIdx();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getPreselectorIdx();
+        default:
+            return -1;
+    }
+}
+
+void KalmarReceiver::setPreselectorIdx(KALMAR_TRACT_INDEX idx, int preselectorIdx) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setPreselectorIdx(preselectorIdx);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setPreselectorIdx(preselectorIdx);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setPreselectorIdx(preselectorIdx);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setPreselectorIdx(preselectorIdx);
+            break;
+    }
+}
+
+KALMAR_TRACT_PRESELEKTOR_USAGE KalmarReceiver::getForcePreselektorUsage(KALMAR_TRACT_INDEX idx) const {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getForcePreselektorUsage();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getForcePreselektorUsage();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getForcePreselektorUsage();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getForcePreselektorUsage();
+        default:
+            return AUTO_DEFINING;
+    }
+}
+
+void KalmarReceiver::setForcePreselektorUsage(KALMAR_TRACT_INDEX idx, KALMAR_TRACT_PRESELEKTOR_USAGE forcePreselektorUsage) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setForcePreselektorUsage(forcePreselektorUsage);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setForcePreselektorUsage(forcePreselektorUsage);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setForcePreselektorUsage(forcePreselektorUsage);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setForcePreselektorUsage(forcePreselektorUsage);
+            break;
+    }
+}
+
+QString KalmarReceiver::getTractInfo(KALMAR_TRACT_INDEX idx) {
+    switch(idx) {
+        case FIRST_TRACT:
+            return receiver->m_firstTract.getTractInfo();
+        case SECOND_TRACT:
+            return receiver->m_secondTract.getTractInfo();
+        case THIRD_TRACT:
+            return receiver->m_thirdTract.getTractInfo();
+        case FOURTH_TRACT:
+            return receiver->m_fourthTract.getTractInfo();
+        default:
+            return "";
+    }
+}
+
+void KalmarReceiver::setParams(KALMAR_TRACT_INDEX idx, unsigned int centralFreq, KALMAR_TRACT_IN_ATT_STATE inAttState, KALMAR_TRACT_HF_ATT_STATE hfAttState, KALMAR_TRACT_IF_ATT_STATE ifAttState, KALMAR_TRACT_IF_BAND ifBand) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setParams(centralFreq, inAttState, hfAttState, ifAttState, ifBand);
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setParams(centralFreq, inAttState, hfAttState, ifAttState, ifBand);
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setParams(centralFreq, inAttState, hfAttState, ifAttState, ifBand);
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setParams(centralFreq, inAttState, hfAttState, ifAttState, ifBand);
+            break;
+    }
+}
+
+void KalmarReceiver::setDefaultParams(KALMAR_TRACT_INDEX idx) {
+    switch(idx) {
+        case FIRST_TRACT:
+            receiver->m_firstTract.setDefaultParams();
+            break;
+        case SECOND_TRACT:
+            receiver->m_secondTract.setDefaultParams();
+            break;
+        case THIRD_TRACT:
+            receiver->m_thirdTract.setDefaultParams();
+            break;
+        case FOURTH_TRACT:
+            receiver->m_fourthTract.setDefaultParams();
+            break;
+    }
+}
+
+KALMAR_KALIBRATOR_MOD_SIGNAL KalmarReceiver::getModSignalType() const {
+    return receiver->m_kalibrator.getModSignalType();
+}
+
+void KalmarReceiver::setModSignalType(const KALMAR_KALIBRATOR_MOD_SIGNAL& modSignalType) {
+    receiver->m_kalibrator.setModSignalType(modSignalType);
+}
+
+int KalmarReceiver::getModulationFreq() const {
+    return receiver->m_kalibrator.getModulationFreq();
+}
+
+void KalmarReceiver::setModulationFreq(int modulationFreq) {
+    receiver->m_kalibrator.setModulationFreq(modulationFreq);
+}
+
+KALMAR_KALIBRATOR_ATT_STATE KalmarReceiver::getAttState() const {
+    return receiver->m_kalibrator.getAttState();
+}
+
+void KalmarReceiver::setAttState(const KALMAR_KALIBRATOR_ATT_STATE& attState) {
+    receiver->m_kalibrator.setAttState(attState);
+}
+
+KALMAR_KALIBRATOR_OUT_TYPE KalmarReceiver::getOutType() const {
+    return receiver->m_kalibrator.getOutType();
+}
+
+void KalmarReceiver::setOutType(const KALMAR_KALIBRATOR_OUT_TYPE& outType) {
+    receiver->m_kalibrator.setOutType(outType);
+}
+
+KALMAR_KALIBRATOR_STATE KalmarReceiver::getWorkState() const {
+    return receiver->m_kalibrator.getWorkState();
+}
+
+void KalmarReceiver::setWorkState(const KALMAR_KALIBRATOR_STATE& workState) {
+    receiver->m_kalibrator.setWorkState(workState);
 }
