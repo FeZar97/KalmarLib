@@ -25,17 +25,22 @@ unsigned int KalmarTract::getCentralFreq() const {
 
 void KalmarTract::setCentralFreq(unsigned int centralFreq) {
 
+    unsigned int newCentralFreq = m_centralFreq;
+
     if(centralFreq >= KALMAR_TRACT_MIN_FREQ && centralFreq <= KALMAR_TRACT_MAX_FREQ) {
-        m_centralFreq = centralFreq;
+        newCentralFreq = centralFreq;
     } else {
         if(centralFreq < KALMAR_TRACT_MIN_FREQ) {
-            m_centralFreq = KALMAR_TRACT_MIN_FREQ;
+            newCentralFreq = KALMAR_TRACT_MIN_FREQ;
         } else {
-            m_centralFreq = KALMAR_TRACT_MAX_FREQ;
+            newCentralFreq = KALMAR_TRACT_MAX_FREQ;
         }
     }
 
-    emit sendTractConfigToPort(this);
+    if(m_centralFreq != newCentralFreq) {
+        m_centralFreq = newCentralFreq;
+        emit sendTractConfigToPort(this);
+    }
 }
 
 KALMAR_TRACT_IN_ATT_STATE KalmarTract::getInAttState() const {
@@ -87,7 +92,10 @@ int KalmarTract::getPreselectorIdx() const {
 }
 
 void KalmarTract::setPreselectorIdx(int preselectorIdx) {
-    m_preselectorIdx = preselectorIdx;
+    if(m_preselectorIdx != preselectorIdx) {
+        m_preselectorIdx = preselectorIdx;
+        emit sendTractConfigToPort(this);
+    }
 }
 
 KALMAR_TRACT_PRESELEKTOR_USAGE KalmarTract::getForcePreselektorUsage() const {

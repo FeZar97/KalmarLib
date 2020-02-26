@@ -18,12 +18,12 @@ CONFIG(release, debug|release): {
     DESTDIR = $$PWD/build/debug
 }
 
-VERSION = 0.1.0
+VERSION = 1.1.0
 
 HEADERS += KalmarDefinitions.h \
+           KalmarReceiver_p.h \
            KalmarTract.h \
            KalmarKalibrator.h \
-           KalmarReceiver_global.h \
            KalmarReceiver.h
 
 SOURCES += KalmarTract.cpp \
